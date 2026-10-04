@@ -272,14 +272,21 @@ class Database {
         // Enabled only when DB_SSL=true, so local development is unaffected.
         // Set DB_SSL_CA to the path of Aiven's CA certificate to also verify the server.
         if ($driver === 'mysql' && filter_var(getenv('DB_SSL'), FILTER_VALIDATE_BOOLEAN)) {
+            // PHP 8.4+ moved these constants to Pdo\Mysql::ATTR_* and PHP 8.5 deprecates the
+            // old PDO::MYSQL_ATTR_* names, so pick whichever exists on this PHP version.
+            $ssl = function ($name) {
+                return class_exists('Pdo\\Mysql', false) || class_exists('Pdo\\Mysql')
+                    ? constant('Pdo\\Mysql::ATTR_' . $name)
+                    : constant('PDO::MYSQL_ATTR_' . $name);
+            };
             $ca = getenv('DB_SSL_CA');
             if ($ca && is_file($ca)) {
-                $options[PDO::MYSQL_ATTR_SSL_CA] = $ca;
-                $options[PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT] = true;
+                $options[$ssl('SSL_CA')] = $ca;
+                $options[$ssl('SSL_VERIFY_SERVER_CERT')] = true;
             } else {
                 // Encrypt the connection without certificate verification.
-                $options[PDO::MYSQL_ATTR_SSL_CIPHER] = 'DEFAULT';
-                $options[PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT] = false;
+                $options[$ssl('SSL_CIPHER')] = 'DEFAULT';
+                $options[$ssl('SSL_VERIFY_SERVER_CERT')] = false;
             }
         }
 
